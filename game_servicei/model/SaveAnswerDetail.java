@@ -10,6 +10,8 @@ public class SaveAnswerDetail {
 	    private String gameInstanceId;
 	    private String packType;
 	    private String scoreCrieteria;
+	    private String spentTime;
+	    
 	   private  Authentication authentication;
 	public String getqId() {
 		return qId;
@@ -64,6 +66,12 @@ public class SaveAnswerDetail {
 	}
 	public void setAuthentication(Authentication authentication) {
 		this.authentication = authentication;
+	}
+	public String getSpentTime() {
+		return spentTime;
+	}
+	public void setSpentTime(String spentTime) {
+		this.spentTime = spentTime;
 	}
 	    
 	    

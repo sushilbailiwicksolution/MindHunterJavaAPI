@@ -2,6 +2,8 @@ package com.bailiwick.game_service.jdbc;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.sql.Timestamp;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Logger;
@@ -13,6 +15,7 @@ import com.bailiwick.game_service.resultExtracter.UserDetailResultExtracter;
 import com.bailiwick.game_service.util.Queries;
 import com.bailiwick.game_servicei.mapper.PlayerDataRowMapper;
 import com.bailiwick.game_servicei.mapper.WinnerDetailRowMapper;
+import com.bailiwick.game_servicei.model.PaytmRequest;
 import com.bailiwick.game_servicei.model.PlayerDataDetail;
 import com.bailiwick.game_servicei.model.PlayerDetail;
 import com.bailiwick.game_servicei.model.PriceRequest;
@@ -154,10 +157,38 @@ public class DaoGameService {
 
 	public void increseCorrectAnswerCount(SaveAnswerDetail saveAnswerDetail) {
 
-		// TODO Auto-generated method stub
+		
+	        String query = null;
+	    query = " UPDATE mh_active_game_details SET mh_active_game_details.correctAnswerCount = correctAnswerCount + 1,updatedDate = '"+(new Timestamp(System.currentTimeMillis())).toString()+"'   WHERE `userId` = "+saveAnswerDetail.getuId()+" AND `gameId` ="+saveAnswerDetail.getGameId()+" AND `instanceId` = "+saveAnswerDetail.getGameInstanceId()+" AND `packId` = "+saveAnswerDetail.getPackId()+"";
+	        try
+	        {
+	            System.out.println((new StringBuilder()).append("increase answer query ==>").append(query).toString());
+	            jdbcService.getJdbcTemplate().update(query);
+	            timeTaken(saveAnswerDetail,1);
+	        }
+	        catch(Exception e)
+	        {
+	            e.printStackTrace();
+	        }
+	    
 
 	}
 
+	public void increseWrongAnswerCount(SaveAnswerDetail saveAnswerDetail) {
+	    String query = null;
+	    query = " UPDATE mh_active_game_details SET mh_active_game_details.wrongAnswerCount = wrongAnswerCount  + 1,updatedDate = '"+(new Timestamp(System.currentTimeMillis())).toString()+"'   WHERE `userId` = "+saveAnswerDetail.getuId()+" AND `gameId` ="+saveAnswerDetail.getGameId()+" AND `instanceId` = "+saveAnswerDetail.getGameInstanceId()+" AND `packId` = "+saveAnswerDetail.getPackId()+"";
+	        try
+	        {
+	            System.out.println((new StringBuilder()).append("increase answer query ==>").append(query).toString());
+	            jdbcService.getJdbcTemplate().update(query);
+	            timeTaken(saveAnswerDetail,2);
+	        }
+	        catch(Exception e)
+	        {
+	            e.printStackTrace();
+	        }
+	    
+	}
 	public UserLoginRequest verifyOtp(UserLoginRequest userLoginRequest) {
 
 		UserLoginRequest userInfo = jdbcService.getJdbcTemplate()
@@ -194,4 +225,35 @@ public class DaoGameService {
         }
 	}
 
+	public String timeTaken(SaveAnswerDetail reqUserAnswerTimeSpend , int answerValue) {
+		Timestamp timestamp = new Timestamp(System.currentTimeMillis());		
+	int update = jdbcService.getJdbcTemplate().update("INSERT INTO mh_user_answer_timings (userId,gameId,packId,instanceId,timeSpend,created_time,qId,answerStatus) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", new Object[]{reqUserAnswerTimeSpend.getuId(),reqUserAnswerTimeSpend.getGameId(),reqUserAnswerTimeSpend.getPackId(),reqUserAnswerTimeSpend.getGameInstanceId(),reqUserAnswerTimeSpend.getSpentTime(),timestamp,reqUserAnswerTimeSpend.getqId(),answerValue});
+		return update!=0?"success":"fail";
+}
+
+	public void savetransactionDetail(PaytmRequest paytmRequest) {
+		int update = jdbcService.getJdbcTemplate().update("INSERT INTO transaction_details(userId,packId,instanceId,gameId,transactionTime,order_id, transaction_type) VALUES (?,?,?,?,?,?,?)", new Object[]{paytmRequest.getUserId(),paytmRequest.getPackId(),paytmRequest.getInstanseId(),paytmRequest.getGameId(),(new Timestamp(System.currentTimeMillis())).toString(),paytmRequest.getOrderId(),1});
+		
+	}
+	
+	/*CURRENCY=INR, 
+			GATEWAYNAME=WALLET, 
+			RESPMSG=Txn+Success, 
+			BANKNAME=WALLET, 
+			PAYMENTMODE=PPI, 
+			MID=MINDHU40541790566351, 
+			RESPCODE=01, 
+			TXNID=20190205111212800110168736400227356, 
+			TXNAMOUNT=20.00, ORDERID=1920190205140229600, 
+			STATUS=TXN_SUCCESS, BANKTXNID=6290132, 
+			TXNDATE=2019-02-05+19%3A32%3A32.0, 
+			CHECKSUMHASH=Apbrd1TX9oH1NTGvv3sTU%2FISZAMkB%2FjCltAjhr9aerZu8t9%2F7wv9o6L7%2BOHv%2Bu85FI0qqAQT%2FVXmk678xzvHPCWKG3dQ5Qo2MvwgrZAFe70%3D}
+*/
+
+	public void updateTransactionDetail(Map<String, String> paytmResponse) {
+	int update = jdbcService.getJdbcTemplate().update("UPDATE transaction_details  SET callback_time = ?,txn_id = ?,payment_mode = ?,currency = ? ,paytm_txn_date_time = ?,STATUS = ? ,response_code = ? ,response_msg = ? ,getway_name = ?,bank_txn_id = ? ,bank_name = ? ,checksumHash = ? WHERE order_id = ?", new Object[]{(new Timestamp(System.currentTimeMillis())).toString(),paytmResponse.get("TXNID"),paytmResponse.get("PAYMENTMODE"),paytmResponse.get("CURRENCY"),paytmResponse.get("TXNDATE"),paytmResponse.get("STATUS"),paytmResponse.get("RESPCODE"),paytmResponse.get("RESPMSG"),paytmResponse.get("GATEWAYNAME"),paytmResponse.get("BANKTXNID"),paytmResponse.get("BANKNAME"),paytmResponse.get("CHECKSUMHASH"),paytmResponse.get("ORDERID")});
+		
+	}
+
+	
 }
