@@ -1,9 +1,11 @@
 package com.bailiwick.game_service.jdbc;
 
+import java.sql.Timestamp;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.TemporalAccessor;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.sql.Timestamp;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Logger;
@@ -11,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.bailiwick.game_service.resultExtracter.SingleIntegerValueExtracter;
+import com.bailiwick.game_service.resultExtracter.StringValueResultExtracter;
 import com.bailiwick.game_service.resultExtracter.UserDetailResultExtracter;
 import com.bailiwick.game_service.util.Queries;
 import com.bailiwick.game_servicei.mapper.PlayerDataRowMapper;
@@ -156,9 +159,10 @@ public class DaoGameService {
 	}
 
 	public void increseCorrectAnswerCount(SaveAnswerDetail saveAnswerDetail) {
-
-		
-	        String query = null;
+		String query = null;
+	
+	        
+	        
 	    query = " UPDATE mh_active_game_details SET mh_active_game_details.correctAnswerCount = correctAnswerCount + 1,updatedDate = '"+(new Timestamp(System.currentTimeMillis())).toString()+"'   WHERE `userId` = "+saveAnswerDetail.getuId()+" AND `gameId` ="+saveAnswerDetail.getGameId()+" AND `instanceId` = "+saveAnswerDetail.getGameInstanceId()+" AND `packId` = "+saveAnswerDetail.getPackId()+"";
 	        try
 	        {
@@ -209,8 +213,12 @@ public class DaoGameService {
 	}
 
 	public String claimPrize(PlayerDetail playerDetail) {
-        int update = jdbcService.getJdbcTemplate().update("INSERT INTO mh_user_reward_details(user_id, reward_id, game_id,pack_id,win_date) SELECT `userId`, `instanceId`, `gameId`,`packId`,`updatedDate` FROM `mh_active_game_details`  WHERE mh_active_game_details.`gameId` = "+playerDetail.getGameId()+" AND mh_active_game_details.`packId` = "+playerDetail.getPackId()+" AND mh_active_game_details.`instanceId` = "+playerDetail.getInstanceId()+"   and  mh_active_game_details.userRank = 1");
-        if(update > 0)
+   
+		
+		int update = jdbcService.getJdbcTemplate().update("INSERT INTO mh_user_reward_details(user_id, reward_id, game_id,pack_id,win_date,score,rewardValue,rewardDetailUnit) SELECT `userId`, `instanceId`, `gameId`,`packId`,`updatedDate`,correctAnswerCount,'"+playerDetail.getRewardValue()+"', '"+playerDetail.getDenominationType()+"' FROM `mh_active_game_details`  WHERE mh_active_game_details.`gameId` = "+playerDetail.getGameId()+" AND mh_active_game_details.`packId` = "+playerDetail.getPackId()+" AND mh_active_game_details.`instanceId` = "+playerDetail.getInstanceId()+"   and  mh_active_game_details.userRank = (1 or 0) ");
+		//jdbcService.getJdbcTemplate().update("update mh_user_reward_details set  rewardValue = "+playerDetail.getRewardValue()+" , rewardDetailUnit = "+playerDetail.getDenominationType()+" whsre game_id = "+playerDetail.getGameId()+" ,pack_id ="+playerDetail.getPackId()+",reward_id ="+playerDetail.getInstanceId()+"  ");
+		
+		if(update > 0)
         {
             String batchSql[] = new String[4];
             batchSql[0] = "BEGIN";
@@ -254,6 +262,45 @@ public class DaoGameService {
 	int update = jdbcService.getJdbcTemplate().update("UPDATE transaction_details  SET callback_time = ?,txn_id = ?,payment_mode = ?,currency = ? ,paytm_txn_date_time = ?,STATUS = ? ,response_code = ? ,response_msg = ? ,getway_name = ?,bank_txn_id = ? ,bank_name = ? ,checksumHash = ? WHERE order_id = ?", new Object[]{(new Timestamp(System.currentTimeMillis())).toString(),paytmResponse.get("TXNID"),paytmResponse.get("PAYMENTMODE"),paytmResponse.get("CURRENCY"),paytmResponse.get("TXNDATE"),paytmResponse.get("STATUS"),paytmResponse.get("RESPCODE"),paytmResponse.get("RESPMSG"),paytmResponse.get("GATEWAYNAME"),paytmResponse.get("BANKTXNID"),paytmResponse.get("BANKNAME"),paytmResponse.get("CHECKSUMHASH"),paytmResponse.get("ORDERID")});
 		
 	}
+
+	public String claimPrizeForQuickWin(PlayerDetail playerDetail) {
+		String createDate = jdbcService.getJdbcTemplate().query("select createdDate as noOfusers from mh_active_game_details where gameId ="+playerDetail.getGameId()+" and userId = "+playerDetail.getUserId()+"", new StringValueResultExtracter ());
+		System.out.println("instanse value " + createDate);
+		int update = 0;
+		if (createDate!=null) {
+		String instanseValue = createDate.replaceAll("[-,:,.]", "");
+		String newInstanseValue = instanseValue.replaceAll(" ", "");
+		update  = jdbcService.getJdbcTemplate().update("INSERT INTO snap_win_winners_details(userId, gameid, packid,instanseId,windate)  VALUES (?,?,?,?,?)" , new Object[]{playerDetail.getUserId(),playerDetail.getGameId(),playerDetail.getPackId(),newInstanseValue,(new Timestamp(System.currentTimeMillis())).toString()});
+}
+		String batchSql[] = new String[4];
+       
+       batchSql[0] = "BEGIN";
+       batchSql[1] = ("INSERT INTO `mh_game_player_detail_history` SELECT * FROM `mh_active_game_details`  WHERE mh_active_game_details.`gameId` = "+playerDetail.getGameId()+" AND mh_active_game_details.`packId` = "+playerDetail.getPackId()+" and  userId = "+playerDetail.getUserId()+" ");
+       batchSql[2] = ("DELETE FROM `mh_active_game_details` WHERE mh_active_game_details.`gameId` = "+playerDetail.getGameId()+" AND mh_active_game_details.`packId` = "+playerDetail.getPackId()+" and  userId = "+playerDetail.getUserId()+"");
+       batchSql[3] = "COMMIT";
+        jdbcService.getJdbcTemplate().batchUpdate(batchSql);
+      
+		return update!=0?"success":"fail";
+	}
+
+	public String claimPrizeForPoolPrize(PlayerDetail playerDetail) {
+		String createDate = jdbcService.getJdbcTemplate().query("select createdDate as noOfusers from mh_active_game_details where gameId ="+playerDetail.getGameId()+" and userId = "+playerDetail.getUserId()+"", new StringValueResultExtracter ());
+		System.out.println("instanse value " + createDate);
+		int update = 0;
+		if (createDate!=null) {
+		String instanseValue = createDate.replaceAll("[-,:,.]", "");
+		String newInstanseValue = instanseValue.replaceAll(" ", "");
+		update  = jdbcService.getJdbcTemplate().update("INSERT INTO pool_prize_winners_details(userId, gameid, packid,instanseId,total_correct,windate,tier_value)  VALUES (?,?,?,?,?,?,?)" , new Object[]{playerDetail.getUserId(),playerDetail.getGameId(),playerDetail.getPackId(),newInstanseValue,playerDetail.getTotalCorrectAnswer(),(new Timestamp(System.currentTimeMillis())).toString(), playerDetail.getTierValue()});
+}
+		String batchSql[] = new String[4];
+       
+       batchSql[0] = "BEGIN";
+       batchSql[1] = ("INSERT INTO `mh_game_player_detail_history` SELECT * FROM `mh_active_game_details`  WHERE mh_active_game_details.`gameId` = "+playerDetail.getGameId()+" AND mh_active_game_details.`packId` = "+playerDetail.getPackId()+" and  userId = "+playerDetail.getUserId()+"");
+       batchSql[2] = ("DELETE FROM `mh_active_game_details` WHERE mh_active_game_details.`gameId` = "+playerDetail.getGameId()+" AND mh_active_game_details.`packId` = "+playerDetail.getPackId()+" and  userId = "+playerDetail.getUserId()+"");
+       batchSql[3] = "COMMIT";
+        jdbcService.getJdbcTemplate().batchUpdate(batchSql);
+      
+		return update!=0?"success":"fail";}
 
 	
 }

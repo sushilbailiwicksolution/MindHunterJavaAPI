@@ -1,5 +1,11 @@
 package com.bailiwick.game_service.service;
 
+import java.io.BufferedReader;
+import java.io.DataOutputStream;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -11,7 +17,9 @@ import java.util.TreeMap;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Logger;
+import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.converter.StringHttpMessageConverter;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -36,7 +44,13 @@ import com.paytm.pg.merchant.CheckSumServiceHelper;
 @Service
 public class GameService implements GameInterface {
 	//com.paytm.merchant.CheckSumServiceHelper checkSumServiceHelper = com.paytm.merchant.CheckSumServiceHelper.getCheckSumServiceHelper();
-
+	@Value("${paytm.callback}")
+	String paytmCallback;
+	@Value("${wrapper.service}")
+	String wrapperServiceUrl;
+	
+	
+	
 	private Logger logger = (Logger) LogManager.getLogger(getClass());
 
 	@Autowired
@@ -87,7 +101,7 @@ public class GameService implements GameInterface {
         System.out.println((new StringBuilder()).append("save Answer Request ======>>>>>>>>>>>").append(saveAnswerDetail).toString());
         RestTemplate rt = new RestTemplate();
         rt.getMessageConverters().add(new StringHttpMessageConverter());
-        String uri = "http://13.232.118.226:8091/cms/question/saveAnswer";
+        String uri = wrapperServiceUrl+"/cms/question/saveAnswer";
         returns = rt.postForObject(uri, saveAnswerDetail, Object.class, new Object[0]);
         Gson gson = new Gson();
         AnswerData fromJson = (AnswerData)gson.fromJson(returns.toString(), AnswerData.class);
@@ -125,7 +139,12 @@ public class GameService implements GameInterface {
 
 
 	public String claimPrize(PlayerDetail playerDetail) {
+if (playerDetail.getGameId()==5) {
+	String result = daoService.claimPrizeForQuickWin(playerDetail);	
+		}
+		
 		String result = daoService.claimPrize(playerDetail);
+		
 		return result;
 	}
 
@@ -146,7 +165,8 @@ public class GameService implements GameInterface {
         String txnAmount = paytmRequest.getAmount();
         String website = "WEBSTAGING";
         String industryTypeId = "Retail";
-        String callbackUrl = "http://13.233.39.58:8092/cms/game//processTransaction/";
+        String callbackUrl = paytmCallback;
+    	
         TreeMap paytmParams = new TreeMap();
         paytmParams.put("MID", "MINDHU40541790566351");
         paytmParams.put("ORDER_ID", orderId);
@@ -196,6 +216,90 @@ public class GameService implements GameInterface {
 	public void updateTransactionDetail(Map<String, String> paytmResponse) {
 		daoService.updateTransactionDetail(paytmResponse);
 		
+	}
+
+
+	public String claimPrizeForQuickWin(PlayerDetail playerDetail) {
+		String result = daoService.claimPrizeForQuickWin(playerDetail);
+		return result;
+	}
+
+
+	public String claimPrizeForPoolPrize(PlayerDetail playerDetail) {
+		String result = daoService.claimPrizeForPoolPrize(playerDetail);
+		return result;
+	}
+
+
+	public String paytmRefund(PlayerDetail playerDetail) {
+	
+		String transactionURL = "https://securegw-stage.paytm.in/refund/HANDLER_INTERNAL/REFUND";
+		String merchantMid = "MINDHU40541790566351";
+		String orderId = "order1";
+		String merchantKey = "YCZEJxIB%FRv6pHb";
+		String transactionType = "REFUND";
+		String refundAmount = "18";
+		String transactionId = "20190205111212800110168397700221125";
+		String refId = "reforder1";
+		String comment = "comment string";
+		TreeMap<String, String> paytmParams = new TreeMap<String, String>();
+		paytmParams.put("MID", merchantMid);
+		paytmParams.put("REFID", refId);
+		paytmParams.put("TXNID", transactionId);
+		paytmParams.put("ORDERID", orderId);
+		paytmParams.put("REFUNDAMOUNT", refundAmount);
+		paytmParams.put("TXNTYPE", transactionType);
+		paytmParams.put("COMMENTS", comment);
+		try {
+		    String paytmChecksum = CheckSumServiceHelper.getCheckSumServiceHelper().genrateCheckSum(merchantKey, paytmParams);
+		    paytmParams.put("CHECKSUM", paytmChecksum);
+		    JSONObject obj = new JSONObject(paytmParams);
+		    String postData = "JsonData=" + obj.toString();
+            //URLConnection connection = transactionURL.openConnection();
+		    URL url;
+		    url = new URL(transactionURL);
+		    HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+		    connection.setRequestMethod("POST");
+		    connection.setRequestProperty("contentType", "application/json");
+		    connection.setUseCaches(false);
+		    connection.setDoOutput(true);
+
+		    DataOutputStream requestWriter = new DataOutputStream(connection.getOutputStream());
+		    requestWriter.writeBytes( postData);
+		    requestWriter.close();
+		    String responseData = "";
+		    InputStream is = connection.getInputStream();
+		    BufferedReader responseReader = new BufferedReader(new InputStreamReader(is));
+		    if((responseData = responseReader.readLine()) != null) {
+		        System.out.append("Response Json = " + responseData);
+		    }
+		    System.out.append("Requested Json = " + postData + " ");
+		    responseReader.close();
+		    return responseData;
+		} catch (Exception exception) {
+		    exception.printStackTrace();
+		}
+		
+		
+		
+		return null;
+	}
+
+
+	public String paytmGratification(PlayerDetail playerDetail) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+
+	public Object getQuestion(PlayerDetail playerDetail) {
+		Object returnDta = null; 
+		RestTemplate rt = new RestTemplate();
+	        rt.getMessageConverters().add(new StringHttpMessageConverter());
+	        String uri = wrapperServiceUrl+"/cms/userHistory/question";
+	        returnDta = rt.postForObject(uri, playerDetail, Object.class, new Object[0]);		
+	        return returnDta;
+	
 	}
 
 
