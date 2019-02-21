@@ -9,7 +9,7 @@ public class SaveAnswerDetail {
 	    private String packId;
 	    private String gameInstanceId;
 	    private String packType;
-	    private String scoreCrieteria;
+	    private int scoreCrieteria;
 	    private String spentTime;
 	    
 	   private  Authentication authentication;
@@ -55,10 +55,11 @@ public class SaveAnswerDetail {
 	public void setPackType(String packType) {
 		this.packType = packType;
 	}
-	public String getScoreCrieteria() {
+	
+	public int getScoreCrieteria() {
 		return scoreCrieteria;
 	}
-	public void setScoreCrieteria(String scoreCrieteria) {
+	public void setScoreCrieteria(int scoreCrieteria) {
 		this.scoreCrieteria = scoreCrieteria;
 	}
 	public Authentication getAuthentication() {
@@ -72,6 +73,13 @@ public class SaveAnswerDetail {
 	}
 	public void setSpentTime(String spentTime) {
 		this.spentTime = spentTime;
+	}
+	@Override
+	public String toString() {
+		return "SaveAnswerDetail [qId=" + qId + ", selectedOption=" + selectedOption + ", uId=" + uId + ", gameId="
+				+ gameId + ", packId=" + packId + ", gameInstanceId=" + gameInstanceId + ", packType=" + packType
+				+ ", scoreCrieteria=" + scoreCrieteria + ", spentTime=" + spentTime + ", authentication="
+				+ authentication + "]";
 	}
 	    
 	    
